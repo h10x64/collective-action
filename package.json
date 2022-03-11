@@ -1,0 +1,21 @@
+{
+  "name": "collective-action",
+  "version": "0.0.1",
+  "description": "Anyone can some \"collective\" action with puppeteer in asynchronously. (But you should not to be annoyance to anyone's to be, please.)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["web-scraping", "puppeteer", "nodejs", "queueing", "asynchronous"],
+  "author": "n_h <h.10x64@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/h10x64/collective-action",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/h10x64/collective-action.git"
+  },
+  "dependencies": {
+    "puppeteer": "^13.4.0"
+  }
+}
