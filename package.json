@@ -1,6 +1,6 @@
 {
   "name": "collective-action",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Anyone can some \"collective\" action with puppeteer in asynchronously. (But you should not to be annoyance to anyone's to be, please.)",
   "main": "index.js",
   "types": "index.d.ts",
