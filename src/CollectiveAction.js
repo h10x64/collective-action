@@ -7,6 +7,8 @@ const AnalyzerPage = require("./AnalyzerPage");
 const AnalyzerQueue = require("./AnalyzerQueue");
 const EvaluateFunctionConstructorParams = require("./EvaluateFunctionConstructorParams");
 const EvaluateFunction = require("./EvaluateFunction");
+const AnalyzedEvent = require("./AnalyzedEvent");
+const AllAnalyzeCompletedEvent = require("./AllAnalyzeCompletedEvent");
 
 /**
  * CLASSES
@@ -19,31 +21,86 @@ class CollectiveAction {
     this.analyzerPages = [];
     this.queues = [];
     this.analyzePromise = undefined;
+    this.analyzedEventListeners = [];
+    this.allAnalyzeCompletedEventListeners = [];
   }
 
   async init() {
     for (let i = 0; i < this.concurrentPageNumber; i++) {
       if (!this.puppeteerBrowser) {
-      this.puppeteerBrowser = await puppeteer.launch();
+        this.puppeteerBrowser = await puppeteer.launch();
       }
-      let puppeteerPage = await this.puppeteerBrowser.newPage();
-      this.analyzerPages.push(new AnalyzerPage.class({
-      puppeteerPage: puppeteerPage,
-      evaluateFunctions: this.evaluateFunctions,
-      queues: this.queues
-      }));
+
+      const puppeteerPage = await this.puppeteerBrowser.newPage();
+      const analyzerPage = new AnalyzerPage.class({
+        puppeteerPage: puppeteerPage,
+        evaluateFunctions: this.evaluateFunctions,
+        queues: this.queues
+      });
+      analyzerPage.addAnalyzedEventListener(this);
+
+      this.analyzerPages.push(analyzerPage);
     }
   }
 
   async push(url) {
-    this.queues.push(new AnalyzerQueue.class(url));
+    const queue = new AnalyzerQueue.class(url);
+    this.queues.push(queue);
+    return queue;
+  }
+
+  async cancel(url) {
+    const cancelledQueues = [];
+
+    for (let i = this.queues.length - 1; i > 0; i--) {
+      const queue = this.queues[i];
+      if (queue.url == url) {
+        cancelledQueues.push(queue);
+        this.queues.splice(i, 1);
+      }
+    }
+
+    return cancelledQueues;
   }
 
   async analyzeAll() {
-    this.analyzePromise = await Promise.all(this.analyzerPages.map(async (analyzerPage, idx, arr) => {
+    this.analyzePromise = Promise.allSettled(this.analyzerPages.map(async (analyzerPage, idx, arr) => {
       await analyzerPage.analyze();
-      this.analyzePromise = undefined;
     }));
+    this.analyzePromise.then((result) => {
+      this.fireAllAnalyzeCompletedEvent(result);
+    });
+    return await this.analyzePromise;
+  }
+
+  async run() {
+    return await this.analyzeAll();
+  }
+
+  async interrupt() {
+    return await Promise.allSettled(this.analyzerPages.map(async (page, idx, arr)=>{
+      return await page.interrupt();
+    }));
+  }
+
+  async resume() {
+    return await Promise.allSettled(this.analyzerPages.map(async (page, idx, arr)=>{
+      return await page.resume();
+    }));
+  }
+
+  async abort() {
+    await this.interrupt();
+
+    const cancelledQueues = [];
+    for (let i in this.queues) {
+      if (AnalyzerQueue.ANALYZER_FILTER_FUNC_UNANALYZED(this.queues[i], i, this.queues)) {
+        cancelledQueues.push(this.queues[i]);
+        this.queues.splice(i, 1);
+      }
+    }
+
+    return cancelledQueues;
   }
 
   async await() {
@@ -56,6 +113,52 @@ class CollectiveAction {
 
   async close() {
     await this.puppeteerBrowser.close();
+  }
+
+  onanalyzed(evt) {
+    this.fireAnalyzedEvent(evt.result);
+  }
+
+  addAnalyzedEventListener(listener) {
+    if (!(listener.onanalyzed instanceof Function)) {
+      if (!(listener instanceof Function)) {
+        throw {message: "listener must be function or has {obj}.onanalyzed method"};
+      }
+    }
+
+    this.analyzedEventListeners.push(listener);
+  }
+
+  addAllAnalyzeCompletedEventListener(listener) {
+    if (!(listener.onallanalyzecompleted instanceof Function)) {
+      if (!(listener instanceof Function)) {
+        throw {message: "listener must be function or has {obj}.onanalyzecompleted method"};
+      }
+    }
+
+    this.allAnalyzeCompletedEventListeners.push(listener);
+  }
+
+  fireAnalyzedEvent(result) {
+    const evt = new AnalyzedEvent.class(result, this);
+    this._fireEvent(this.analyzedEventListeners, "onanalyzed", evt);
+  }
+
+  fireAllAnalyzeCompletedEvent(result) {
+    const evt = new AllAnalyzeCompletedEvent.class(result, this);
+    this._fireEvent(this.allAnalyzeCompletedEventListeners, "onallanalyzecomplete", evt);
+  }
+
+  _fireEvent(listeners, funcName, evt) {
+    for (let i in listeners) {
+      const listener = listeners[i];
+
+      if (listener[funcName] instanceof Function) {
+        listener[funcName](evt);
+      } else if (listener instanceof Function) {
+        listener(evt);
+      }
+    }
   }
 
   get unanalyzedQueues() {

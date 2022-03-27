@@ -15,6 +15,11 @@ class DefaultEvalResult extends EvalResult.class {
 
 class EvaluateFunction {
   constructor(params) {
+    const name = params.name;
+    const urlRegex = params.urlRegex;
+    const functions = params.functions;
+    const waitUntil = params.waitUntil;
+
     // Default previous function. (Do not skip evaluation)
     let prevDefaultFunc = ((_this, url)=>{
       let doesSkipEvaluate = false;
@@ -32,19 +37,19 @@ class EvaluateFunction {
     });
 
     // Use default name(`${timestamp}.${random 3 digit}`) if this parameter isn't setted.
-    this.name = params.name ? params.name : new String(Math.round((Date.now() + Math.random()) * 1000) / 1000);
+    this.name = name ? name : new String(Math.round((Date.now() + Math.random()) * 1000) / 1000);
 
     // Use default regex(/.*/) if this parameter isn't setted.
-    this.urlRegex = params.urlRegex ? params.urlRegex : /.*/;
+    this.urlRegex = urlRegex ? urlRegex : /.*/;
 
-    if (!params.functions) {
+    if (!functions) {
       this.functions = {
         prev: prevDefaultFunc,
         eval: evalDefaultFunc,
         after: afterDefaultFunc,
       };
      } else {
-      this.functions = params.functions;
+      this.functions = functions;
 
       if (!this.functions.prev) {
         this.functions.prev = prevDefaultFunc;
@@ -56,7 +61,8 @@ class EvaluateFunction {
         this.functions.after = afterDefaultFunc;
       }
     }
-    this.waitUntil = params.waitUntil;
+    
+    this.waitUntil = waitUntil;
   }
 }
 
